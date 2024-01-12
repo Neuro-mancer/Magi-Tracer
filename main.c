@@ -160,7 +160,6 @@ void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE])
 	{
 		for(int y = -SCREEN_HEIGHT / 2; y < SCREEN_HEIGHT / 2; y++)
 		{
-			printf("x: %d | y: %d\n", x, y);
 			viewport = newPoint((float)x * ((float)VIEWPORT_WIDTH / SCREEN_WIDTH), (float)y * ((float)VIEWPORT_HEIGHT / SCREEN_HEIGHT), PROJECTION_PLANE);
 			vector ray = newVector(camera, viewport); // get the vector from the camera canvas to the viewport
 			color colors = traceRay(camera, ray, 1.0, FLT_MAX, scene);
@@ -186,13 +185,11 @@ color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere 
 		{
 			closestPoint = solutions[0];
 			closestObject = &scene[object];
-			printf("Solution Detected\n");
 		}
 		if(solutions[1] > paramMin && solutions[1] < paramMax && solutions[1] < closestPoint)
 		{
 			closestPoint = solutions[1];
 			closestObject = &scene[object];
-			printf("Solution Detected\n");
 		}
 	}
 
@@ -217,9 +214,6 @@ void checkIntersection(point camera, vector ray, float solutions[2], sphere curr
 	c = (camToSphere.x * camToSphere.x) + (camToSphere.y * camToSphere.y) + (camToSphere.z * camToSphere.z) - (currentObject.radius * currentObject.radius);
 
 	discriminant = (b * b) - (4 * a * c);
-	 printf("Discriminant: %f\n", discriminant);
-	 printf("B^2: %f\n", b*b);
-	 printf("-4AC: %f\n", -4*a*c);
 
 	if(discriminant < 0.0000)
 	{
