@@ -9,9 +9,8 @@ capabilities possible, the placement of a pixel.
 ## What is Ray Tracing?
 
 The idea of the ray tracing is quite simple in theory: imagine you are trying to paint a scene that is in front of you.
-You can divide your canvas into little equally-sized squares. You can then map these squares likewise onto your viewpoint.
-The color of the square on your canvas is determined by whatever color you see the most reflected from rays of light
-from corresponding square of your viewpoint. 
+You can divide your canvas into little equally-sized squares. You can then map these squares and have them correspond to your viewpoint.
+The color of the square on your canvas is determined by whatever color you see the most from the square in your viewpoint.
 
 Now in real life, the rays of light reflected come from light sources; however,
 the origin point for our rays in this program come from the viewpoint of the camera. There is quite a bit of linear algebra
