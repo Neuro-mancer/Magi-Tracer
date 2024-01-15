@@ -4,7 +4,9 @@ This repository contains the code for a simple ray tracer I've been writing in C
 Instead of directly using OpenGL, I use SDL's OpenGL capabilities (only the simple placement of a pixel) to create
 3D graphics using a ray tracing algorithm. While it's probably more efficient to use OpenGL shading language, this has
 mostly been an exercise in learning. I wanted to learn how ray tracing works by starting with the simplest graphical
-capabilities possible, the placement of a pixel.
+capabilities possible, the placement of a pixel. Below is a screenshot of a render from Magi-tracer:
+
+![Magi-tracer Render](https://github.com/Neuro-mancer/Magi-Tracer/blob/main/docs/raytraced.png?raw=true "Magi-Tracer")
 
 ## What is Ray Tracing?
 
@@ -29,6 +31,7 @@ catering to this use.
 - Will compile and run on GNU/Linux (Maybe Windows? Have to test.)
 - Diffuse lighting
 - Specular reflection
+- Supports sphere primitives
 
 ### Planned Features
 

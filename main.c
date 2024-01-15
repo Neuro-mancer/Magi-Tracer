@@ -68,9 +68,9 @@ typedef struct LightSource
 //} scene;
 
 const color BACKGROUND_COLOR = {
-	255,
-	255,
-	255
+	0,
+	0,
+	0,
 };
 
 bool graphicsInit(void);
@@ -100,10 +100,10 @@ int main(int argc, char *argv[])
 	point camera = newPoint(0, 0, 0);
 
 	// Scene objects
-	sphere redSphere = newSphere(newPoint(0, -1, 3), 1, newColor(255, 0, 0), 500);
-	sphere greenSphere = newSphere(newPoint(-2, 0, 4), 1, newColor(0, 255, 0), 500);
-	sphere blueSphere = newSphere(newPoint(2, 0, 4), 1, newColor(0, 0, 255), 10);
-	sphere bigYellowSphere = newSphere(newPoint(0, -5001, 0), 5000, newColor(255, 255, 0), 1000);
+	sphere redSphere = newSphere(newPoint(0, -1, 3), 1, newColor(0xFF, 0xC6, 0xff), 500);
+	sphere greenSphere = newSphere(newPoint(-4, 5, 15), 2, newColor(0xCa, 0xff, 0xbf), 10);
+	sphere blueSphere = newSphere(newPoint(5, 4, 20), 3, newColor(0x9b, 0xf6, 0xff), 10);
+	sphere bigYellowSphere = newSphere(newPoint(0, -5001, 0), 5000, newColor(0xfd, 0xff, 0xb6), 1000);
 	sphere scene[NUM_OBJECTS_SCENE] = {redSphere, blueSphere, greenSphere, bigYellowSphere};
 
 	// Scene lights
