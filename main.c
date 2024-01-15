@@ -9,7 +9,8 @@
 #define VIEWPORT_WIDTH 1.0
 #define VIEWPORT_HEIGHT 1.0
 #define PROJECTION_PLANE 1.0
-#define NUM_OBJECTS_SCENE 3
+#define NUM_OBJECTS_SCENE 4
+#define NUM_LIGHTS_SCENE 3
 
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
@@ -40,6 +41,7 @@ typedef struct Sphere
 	point center;
 	float radius;
 	color colors;
+	float specular;
 } sphere;
 
 typedef struct Pixel
@@ -49,6 +51,22 @@ typedef struct Pixel
 	color colors;
 } pixel;
 
+typedef enum {AMBIENT, POINT, DIRECTIONAL} light; 
+
+typedef struct LightSource
+{
+	light type;
+	float intensity;
+	point position;
+	vector direction;
+} light_source;
+
+//typedef struct Scene
+//{
+//	light_source lights;
+//	sphere spheres[NUM_OBJECTS_SCENE];
+//} scene;
+
 const color BACKGROUND_COLOR = {
 	255,
 	255,
@@ -56,17 +74,23 @@ const color BACKGROUND_COLOR = {
 };
 
 bool graphicsInit(void);
+float dotProduct(vector i, vector j);
+float calculateLight(point P, vector normal, light_source lights[NUM_LIGHTS_SCENE], vector v, float specular);
+float getVectorMagnitude(vector v);
 void checkIntersection(point camera, vector ray, float solutions[2], sphere currentObject);
 void graphicsCleanup(void);
 void clearScreen(void);
 point newPoint(float x, float y, float z);
 vector newVector(point a, point b);
-sphere newSphere(point center, float radius, color colors);
+sphere newSphere(point center, float radius, color colors, float specular);
 color newColor(uint8_t red, uint8_t green, uint8_t blue);
-void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE]);
+void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE], light_source lights[NUM_LIGHTS_SCENE]);
 void drawPixel(pixel currentPixel);
 pixel newPixel(int x, int y, color colors);
-color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere scene[NUM_OBJECTS_SCENE]);
+color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere scene[NUM_OBJECTS_SCENE], light_source lights[NUM_LIGHTS_SCENE]);
+light_source newAmbientLight(float intensity);
+light_source newPointLight(float intensity, point location);
+light_source newDirLight(float intensity, vector direction);
 
 int main(int argc, char *argv[])
 {
@@ -76,18 +100,22 @@ int main(int argc, char *argv[])
 	point camera = newPoint(0, 0, 0);
 
 	// Scene objects
-	sphere scene[NUM_OBJECTS_SCENE];
-	sphere redSphere = newSphere(newPoint(0, -1, 3), 1, newColor(255, 0, 0));
-	sphere greenSphere = newSphere(newPoint(-2, 0, 4), 1, newColor(0, 255, 0));
-	sphere blueSphere = newSphere(newPoint(2, 0, 4), 1, newColor(0, 0, 255));
-	scene[0] = redSphere;
-	scene[1] = blueSphere;
-	scene[2] = greenSphere;
+	sphere redSphere = newSphere(newPoint(0, -1, 3), 1, newColor(255, 0, 0), 500);
+	sphere greenSphere = newSphere(newPoint(-2, 0, 4), 1, newColor(0, 255, 0), 500);
+	sphere blueSphere = newSphere(newPoint(2, 0, 4), 1, newColor(0, 0, 255), 10);
+	sphere bigYellowSphere = newSphere(newPoint(0, -5001, 0), 5000, newColor(255, 255, 0), 1000);
+	sphere scene[NUM_OBJECTS_SCENE] = {redSphere, blueSphere, greenSphere, bigYellowSphere};
+
+	// Scene lights
+	light_source ambLight1 = newAmbientLight(0.2);
+	light_source pointLight1 = newPointLight(0.6, newPoint(2, 1, 0));
+	light_source dirLight1 = newDirLight(0.2, newVector(newPoint(0, 0, 0), newPoint(1, 4, 4)));
+	light_source lights[NUM_LIGHTS_SCENE] = {ambLight1, pointLight1, dirLight1};
 
 	if(graphicsInit())
 	{
-		rayTraceScene(camera, scene);
-		SDL_Delay(5000);
+		rayTraceScene(camera, scene, lights);
+		SDL_Delay(10000);
 	}
 	else 
 	{
@@ -97,6 +125,35 @@ int main(int argc, char *argv[])
 
 	graphicsCleanup();
 	return success;
+
+	// ride, captain, ride
+	// upon your mystery ship!
+}
+
+light_source newAmbientLight(float intensity)
+{
+	light_source newLight;
+	newLight.type = AMBIENT;
+	newLight.intensity = intensity;
+	return newLight;
+}
+
+light_source newPointLight(float intensity, point position)
+{
+	light_source newLight;
+	newLight.type = POINT;
+	newLight.intensity = intensity;
+	newLight.position = position;
+	return newLight;
+}
+
+light_source newDirLight(float intensity, vector direction)
+{
+	light_source newLight;
+	newLight.type = DIRECTIONAL;
+	newLight.intensity = intensity;
+	newLight.direction = direction;
+	return newLight;
 }
 
 point newPoint(float x, float y, float z)
@@ -117,12 +174,13 @@ vector newVector(point a, point b)
 	return newVector;
 }
 
-sphere newSphere(point center, float radius, color colors)
+sphere newSphere(point center, float radius, color colors, float specular)
 {
 	sphere newSphere;
 	newSphere.center = center;
 	newSphere.radius = radius;
 	newSphere.colors = colors;
+	newSphere.specular = specular;
 	return newSphere;
 }
 
@@ -152,7 +210,7 @@ void drawPixel(pixel currentPixel)
 	SDL_RenderDrawPoint(renderer, currentPixel.x, currentPixel.y);
 }
 
-void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE])
+void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE], light_source lights[NUM_LIGHTS_SCENE])
 {
 	point viewport;
 
@@ -162,7 +220,7 @@ void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE])
 		{
 			viewport = newPoint((float)x * ((float)VIEWPORT_WIDTH / SCREEN_WIDTH), (float)y * ((float)VIEWPORT_HEIGHT / SCREEN_HEIGHT), PROJECTION_PLANE);
 			vector ray = newVector(camera, viewport); // get the vector from the camera canvas to the viewport
-			color colors = traceRay(camera, ray, 1.0, FLT_MAX, scene);
+			color colors = traceRay(camera, ray, 1.0, FLT_MAX, scene, lights);
 			pixel currentPixel = newPixel(x, y, colors);
 			drawPixel(currentPixel);
 		}
@@ -171,11 +229,19 @@ void rayTraceScene(point camera, sphere scene[NUM_OBJECTS_SCENE])
 	SDL_RenderPresent(renderer);
 }
 
-color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere scene[NUM_OBJECTS_SCENE])
+color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere scene[NUM_OBJECTS_SCENE], light_source lights[NUM_LIGHTS_SCENE])
 {
 	float closestPoint = paramMax; // closest point on object struck by ray
 	sphere *closestObject = NULL;
 	float solutions[2]; // two solutions from quadratic parametric equation
+	float intensity;
+	float normalVecMag;
+	point P;
+	vector normal;
+	vector v;
+	int redCorrected;
+	int greenCorrected;
+	int blueCorrected;
 
 	for(int object = 0; object < NUM_OBJECTS_SCENE; object++)
 	{
@@ -198,7 +264,27 @@ color traceRay(point camera, vector ray, float paramMin, float paramMax, sphere 
 		return BACKGROUND_COLOR;
 	}
 
-	return closestObject->colors;
+	P = newPoint(camera.x + (ray.x * closestPoint), camera.y + (ray.y * closestPoint), camera.z + (ray.z * closestPoint));
+	normal = newVector(closestObject->center, P);
+	normalVecMag = getVectorMagnitude(normal);
+	normal.x = normal.x / normalVecMag;
+	normal.y = normal.y / normalVecMag;
+	normal.z = normal.z / normalVecMag;
+	v.x = -ray.x; v.y = -ray.y; v.z = -ray.z;
+	intensity = calculateLight(P, normal, lights, v, closestObject->specular);
+
+	// colors corrected for lighting and reflections
+	redCorrected = closestObject->colors.red * intensity;
+	greenCorrected = closestObject->colors.green * intensity;
+	blueCorrected = closestObject->colors.blue * intensity;
+
+	// prevent overflow
+	redCorrected = redCorrected > 255 ? 255 : redCorrected;
+	greenCorrected = greenCorrected > 255 ? 255 : greenCorrected;
+	blueCorrected = blueCorrected > 255 ? 255 : blueCorrected;
+
+	// return the color associated with object
+	return newColor(redCorrected, greenCorrected, blueCorrected);
 }
 
 void checkIntersection(point camera, vector ray, float solutions[2], sphere currentObject)
@@ -209,9 +295,9 @@ void checkIntersection(point camera, vector ray, float solutions[2], sphere curr
 	float discriminant;
 	vector camToSphere = newVector(currentObject.center, camera);
 
-	a = (ray.x * ray.x) + (ray.y * ray.y) + (ray.z * ray.z);
-	b = 2 * ((camToSphere.x * ray.x) + (camToSphere.y * ray.y) + (camToSphere.z * ray.z));
-	c = (camToSphere.x * camToSphere.x) + (camToSphere.y * camToSphere.y) + (camToSphere.z * camToSphere.z) - (currentObject.radius * currentObject.radius);
+	a = dotProduct(ray, ray);
+	b = 2 * dotProduct(camToSphere, ray);
+	c = dotProduct(camToSphere, camToSphere) - (currentObject.radius * currentObject.radius);
 
 	discriminant = (b * b) - (4 * a * c);
 
@@ -229,6 +315,66 @@ void checkIntersection(point camera, vector ray, float solutions[2], sphere curr
 	// printf("Sol 1: %f | Sol 2: %f\n", solutions[0], solutions[1]);
 }
 
+float calculateLight(point P, vector normal, light_source lights[NUM_LIGHTS_SCENE], vector v, float specular)
+{
+	float normalDotLightDir;
+	vector lightDir; // light vector
+	vector reflection;
+	float reflectDotV;
+	float intensity = 0;
+
+	for(int i = 0; i < NUM_LIGHTS_SCENE; i++)
+	{
+		if(lights[i].type == AMBIENT)
+		{
+			intensity += lights[i].intensity;
+		}
+		else
+		{
+			if(lights[i].type == POINT)
+			{
+				lightDir = newVector(P, lights[i].position);
+			}
+			else 
+			{
+				lightDir = lights[i].direction;
+			}
+
+			normalDotLightDir = dotProduct(normal, lightDir);
+
+			if(normalDotLightDir > 0)
+			{
+				intensity += (lights[i].intensity * normalDotLightDir) / (getVectorMagnitude(normal) * getVectorMagnitude(lightDir));
+			}
+
+			if(specular != -1.0)
+			{
+				reflection.x = 2 * normal.x * normalDotLightDir - lightDir.x;
+				reflection.y = 2 * normal.y * normalDotLightDir - lightDir.y;
+				reflection.z = 2 * normal.z * normalDotLightDir - lightDir.z;
+				reflectDotV = dotProduct(reflection, v);
+
+				if(reflectDotV > 0)
+				{
+					intensity += lights[i].intensity * pow((double)reflectDotV / (getVectorMagnitude(reflection) * getVectorMagnitude(v)), (double)specular);
+				}
+			}
+		}
+	}
+	
+	return intensity;
+}
+
+float getVectorMagnitude(vector v)
+{
+	return sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+}
+
+float dotProduct(vector i, vector j)
+{
+	return (i.x * j.x) + (i.y * j.y) + (i.z * j.z);
+}
+
 bool graphicsInit(void)
 {
 	bool success = true;
@@ -240,7 +386,7 @@ bool graphicsInit(void)
 	}
 	else
 	{
-		window = SDL_CreateWindow("Ray Tracer", SDL_WINDOWPOS_CENTERED,
+		window = SDL_CreateWindow("Magi-Tracer Ray Tracer", SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
 		if(window == NULL)
